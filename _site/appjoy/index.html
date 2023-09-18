@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AppJoy - Personalized Mobile Application Discovery</title>
+  <script type="text/javascript" async
+    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+  </script>
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        processEscapes: true
+      },
+      "HTML-CSS": {
+        linebreaks: {
+          automatic: true
+        },
+        availableFonts: ["TeX"]
+      },
+      showMathMenu: true
+    });
+  </script>
+</head>
+<body>
+  <h1>AppJoy - Personalized Mobile Application Discovery</h1>
+  <ul><li><a href="#introduction">Introduction</a></li><li><a href="#slope-one-prediction">Slope One Prediction</a></li><li><a href="#algorithm-appjoy-similarity-matrix">Algorithm: AppJoy Similarity Matrix</a></li></ul>
+  <h1 id="introduction">Introduction</h1>
+
+<p>AppJoy applies an <strong>RFD (Recency, Frequency, and Duration) model</strong>, which is a variation of the widely-used <strong>RFM (Recency, Frequency, and Monetary)</strong> model in marketing that measures a customers behavior and loyalty. Recency measures how recently a customer has purchased; Frequency measures how often the customer purchased in a given time period; and Monetary measures how much the customer spent in that period. In the context of using mobile applications, AppJoy focuses on the user interacting with the application through the applications user interface. Thus recency means how recently a user has interacted with the application. Frequency means how frequently the user interacted with the application in a given time period. Instead of using Monetary value, AppJoy uses Duration to measure how long the user actually interacted with the application. By combining these three values, RFD can provide a good estimate of how much a user likes to use an application.</p>
+
+<p>We define recency (\(v_R\)) as the time elapsed since the last use of the application \(p\) by the user \(u\), frequency (\(v_F\)) as the number of times \(u\) interacted with the application within a certain period, and duration (\(v_D\)) as the total duration time that \(u\) interacted with an application during that period. The usage score is thus represented as:</p>
+
+\[v_{up} = w_R v_R + w_F v_F + w_D v_D\]
+
+<p>where \(w_R\), \(w_F\), and \(w_D\) are the weights based on their relative importance. The combination of these three measurements reflects the user’s application taste. The applications that have been used more recently, more frequently, and for more time are likely to be favored more by the user.</p>
+
+<h1 id="slope-one-prediction">Slope One Prediction</h1>
+
+<p>Consider two users, \(A\) and \(B\), two items, \(I\) and \(J\), and the table below.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center"> </th>
+      <th style="text-align: center">Item I</th>
+      <th style="text-align: center">Item J</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center">User A</td>
+      <td style="text-align: center">1</td>
+      <td style="text-align: center">1.5</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">User B</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">?</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>User \(A\) gave item \(I\) a rating of 1, whereas user \(B\) gave it a rating of 2, while user \(A\) gave item \(J\) a rating of 15. We observe that item \(J\) is rated more than item \(I\) by \(1.5 - 1 = 0.5\) points. Thus, we could predict that user \(B\) will give item \(J\) a rating of \(2 + 0.5 = 2.5\). We call user \(B\) the predictee user and item \(J\) the predictee item. Many such differentials exist in a training set for each unknown rating, and we take an average of these differentials.</p>
+
+<p>Given two evaluation arrays \(v_i\) and \(w_i\) with \(i = 1\) to \(n\), we search for the best predictor of the form \(f(x) = x + b\) (and hence the name Slope One) to predict \(w\) from \(v\) by minimizing \(\sum_{i=1}^{n}(v_i + b - w_i)^2\).</p>
+
+<p>Deriving with respect to \(b\) and setting the derivative to zero, we get:</p>
+
+\[b = \frac{\sum_{i=1}^{n}w_i - v_i}{n}\]
+
+<p>In other words, the constant \(b\) must be chosen to be the average difference between the two arrays.</p>
+
+<p>This result motivates the following scheme. Given a training set \(\chi\), and any two items \(j\) and \(i\) with ratings \(u_j\) and \(u_i\) respectively in some user evaluation \(u\), (annotated as \(u \in {S_{ji}}(\chi)\)), we consider the average deviation of item \(i\) with respect to item \(j\) as:</p>
+
+\[\text{dev}_{ji} = \sum_{u \in S_{j,i}(\chi)} \frac{u_j - u_i}{\text{card}(S_{ji}(\chi))}\]
+
+<p>Note that any user evaluation \(u\) not containing both \(u_j\) and \(u_i\) is not included in the summation. The symmetric matrix defined by \(\text{dev}_{ji}\) can be computed once and updated quickly when new data is entered.</p>
+
+<p>Given that \(\text{dev}_{ji} + u_i\) is a prediction for \(u_j\) given \(u_i\), a reasonable predictor might be the average of all such predictions:</p>
+
+\[P(u)_j = \frac{1}{\text{card}(R_j)} \sum_{i \in R_j} \left(\text{dev}_{ji} + u_i\right)\]
+
+<p>where</p>
+
+\[R_j = \{i \,|\, i \in S(u), i \neq  j,  \text{card}(S_{ji}(\chi)) &gt; 0\}\]
+
+<p>is the set of all relevant items.</p>
+
+<p>Basically, \(\text{dev}_{ji}\) is the average score difference between \(j\) and \(i\) from all the users who have used both of them. Then, AppJoy predicts \(u_j\) based on \(u_i\) by adding \(\text{dev}_{ji}\) to \(u_i\) and taking an average for all relevant applications \(i\). The simplicity of this approach also makes it easy to implement, and its prediction accuracy is comparable to more sophisticated and computationally expensive algorithms.</p>
+
+<p>One of the drawbacks of simple Slope One is that the number of scores observed is not taken into consideration. Assuming that we are given the scores of user \(u\) on applications \(i\) and \(k\) to predict the score of user \(u\) on application \(j\). If 1000 users have used \(i\) and \(j\) whereas only 10 users have used \(k\) and \(j\), the score of user \(u\) on \(i\) is likely to be a much better predictor for \(j\) than the score of user \(u\) on \(k\) is. Taking this into account, the prediction can be changed to:</p>
+
+\[P_w(u_j) = \frac{\sum_{i \in R_{uj}} (\text{dev}_{ji} + u_i) \text{card}(S_{ji})}{\sum_{i \in R_{uj}} \text{card}(S_{ji})} \tag{1}\]
+
+<h1 id="algorithm-appjoy-similarity-matrix">Algorithm: AppJoy Similarity Matrix</h1>
+
+<p>for each ordered vector of app ids \(T_u\) by user \(u \in U\) do</p>
+
+<p>\(\quad\) while size(\(T_u\)) &gt; 1 do</p>
+
+<p>\(\quad\) \(\quad\) find an application \(p \in T_u\) with score \(v_{up}\)</p>
+
+<p>\(\quad\) \(\quad\) set \(T_u = T_u - p\)</p>
+
+<p>\(\quad\) \(\quad\) for each application \(q \in T_u\) with score \(v_{uq}\) do</p>
+
+<p>\(\quad\) \(\quad\) \(\quad\) find \(\text{Diff}(p, q) = v_{up} - v_{uq}\)</p>
+
+<p>\(\quad\) \(\quad\) \(\quad\) set \(\text{Count}(p, q) = \text{Count}(p, q) + 1\)</p>
+
+<p>\(\quad\) \(\quad\) end for</p>
+
+<p>\(\quad\) end while</p>
+
+<p>end for</p>
+
+<p>for each pair application \(p\) and \(q\) do</p>
+
+<p>\(\quad\) find \(\text{Diff}(p, q) = \text{Diff}(p, q) / \text{Count}(p, q)\)</p>
+
+<p>end for</p>
+
+<p>return Diff</p>
+
+<p>This approach is called the Weighted Slope One and the Algorithm shows how to compute the similarity matrix of the applications using this approach.</p>
+
+<p>Once the application similarity matrix is computed, AppJoy makes recommendations for the user $u$ as follows. For an application $j$ not used by the user $u$, AppJoy can calculate its weighted slope one score $Pw(u_j)$ using Equation 1, while the $dev_{ji}$ can be looked up in the similarity matrix. AppJoy computes the scores for all applications $j$ not in $S(u)$, if there is a $Diff(ji)$ entry for any $i$ in $S(u)$, and returns the top $N$ applications with the highest scores.</p>
+
+</body>
+</html>
