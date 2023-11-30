@@ -15,7 +15,7 @@ where $\mathbb{E}$ is the expectation over the distribution of $x$, and $\Delta$
 
 # AutoRec: Autoencoders Meet Collaborative Filtering
 
-Assume a dataset consisting of M users and N items. Let $r_m \in \mathbb{R}^N$ be a partially observed vector for the user $m$ consisting of its preference score to each of the $N$ items and let $r_n$ be item $n$'s partially observed vector for each user. The AutoRec model has two variants: user-based AutoRec (U-AutoRec) and item-based AutoRec (I-AutoRec). In U-AutoRec, the autoencoder takes as input each partially observed $r_m$, projects it into a low-dimensional latent (hidden) space, and then reconstruct $r_m$ in the output space to predict missing ratings for purposes of recommendation for specific users. Similarly, for I-AutoRec, the autoencoder learns a lower-dimensional representation of user preferences for specific items.
+Assume a dataset consisting of M users and N items. Let $r_m \in \mathbb{R}^N$ be a partially observed vector for the user $m$ consisting of its preference score to each of the $N$ items where unknown ratings are set to zeros by default. Similarly, let $r_n$ be item $n$'s partially observed vector for each user. The AutoRec model has two variants: user-based AutoRec (U-AutoRec) and item-based AutoRec (I-AutoRec). In U-AutoRec, the autoencoder takes as input each partially observed $r_m$, projects it into a low-dimensional latent (hidden) space, and then reconstruct $r_m$ in the output space to predict missing ratings for purposes of recommendation for specific users. Similarly, for I-AutoRec, the autoencoder learns a lower-dimensional representation of user preferences for specific items.
 
 The U-AutoRec objective is defined as
 
@@ -31,7 +31,7 @@ $$
 h(r_m; \theta) = f(W \cdot g(Vr_m + \mu) + b)
 $$
 
-- $$\Vert \cdot \Vert^2_{O}$$ means that the loss is defined only on the observed preferences of the user.
+- $$\Vert \cdot \Vert^2_{O}$$ means that the loss is defined only on the observed preferences of the user, that is, only weights that are associated with observed inputs are updated during back-propagation.
 - $f(\cdot)$ and $g(\cdot)$ are activation functions.
 - $$\theta = \{W, V, \mu, b\}$$ is the set of parameters for transformations $W \in \mathbb{R}^{N \times k}$, $V \in \mathbb{R}^{k \times N}$, and biases $\mu \in \mathbb{R}^{k}$, $b \in \mathbb{R}^{N}$. The weight matrix $W$ of the reverse mapping may optionally be constrained by $W = V^T$, in which case the autoencoder is said to have tied weights.
 - $\lambda > 0$ is the regularisation strength. 
