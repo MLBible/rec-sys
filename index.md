@@ -12,4 +12,6 @@ title: Home
 
 - [Bayesian Personalized Ranking](bpr/)
 
+- [Neural Collaborative Filtering](ncf/)
+
 - [DLRM](dlrm/)

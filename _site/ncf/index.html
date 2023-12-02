@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Neural Collaborative Filtering</title>
+  <script type="text/javascript" async
+    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+  </script>
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        processEscapes: true
+      },
+      "HTML-CSS": {
+        linebreaks: {
+          automatic: true
+        },
+        availableFonts: ["TeX"]
+      },
+      showMathMenu: true
+    });
+  </script>
+</head>
+<body>
+  <h1>Neural Collaborative Filtering</h1>
+  <ul><li><a href="#introduction">Introduction</a></li><li><a href="#general-framework">General Framework</a></li><li><a href="#generalized-matrix-factorization-gmf">Generalized Matrix Factorization (GMF)</a></li><li><a href="#multi-layer-perceptron-mlp">Multi-Layer Perceptron (MLP)</a></li><li><a href="#fusion-of-gmfandmlp">Fusion of GMFandMLP</a></li><li><a href="#pre-training">Pre-training</a></li></ul>
+  <h1 id="introduction">Introduction</h1>
+
+<p>Let $M$ and $N$ denote the number of users and items, respectively. We define the user–item interaction matrix $Y \in \mathbb{R}^{M \times N}$ from users’ implicit feedback as,</p>
+
+\[y_{ui} = \begin{cases} 1, &amp; \text{if interaction (user } u, \text{ item } i) \text{ is observed,} \\ 0, &amp; \text{otherwise.} \end{cases}\]
+
+<p>Here, a value of 1 for $y_{ui}$ indicates that there is an interaction between user $u$ and item $i$; however, it does not mean $u$ actually likes $i$. Similarly, a value of 0 does not necessarily mean $u$ does not like $i$; it can be that the user is not aware of the item. This poses challenges in learning from implicit data since it provides only noisy signals about users’ preferences. While observed entries at least reflect users’ interest in items, the unobserved entries can be just missing data, and there is a natural scarcity of negative feedback.</p>
+
+<p>The recommendation problem with implicit feedback is formulated as the problem of estimating the scores of unobserved entries in $Y$, which are used for ranking the items. Model-based approaches assume that data can be generated (or described) by an underlying model. Formally, they can be abstracted as learning \(\hat{y}_{ui} = f(u, i \vert \Theta)\), where \(\hat{y}_{ui}\) denotes the predicted score of interaction \(y_{ui}\), $\Theta$ denotes model parameters, and $f$ denotes the function that maps model parameters to the predicted score (termed as an interaction function).</p>
+
+<p>To estimate parameters \(\Theta\), existing approaches generally follow the machine learning paradigm that optimizes an objective function. Two types of objective functions are most commonly used in the literature — pointwise loss and pairwise loss. As a natural extension of abundant work on explicit feedback, methods on pointwise learning usually follow a regression framework by minimizing the squared loss between \(\hat{y}_{ui}\) and its target value \(y_{ui}\). To handle the absence of negative data, they have either treated all unobserved entries as negative feedback or sampled negative instances from unobserved entries. For pairwise learning, the idea is that observed entries should be ranked higher than the unobserved ones. As such, instead of minimizing the loss between \(\hat{y}_{ui}\) and \(y_{ui}\), pairwise learning maximizes the margin between observed entry \(\hat{y}_{ui}\) and unobserved entry \(\hat{y}_{uj}\).</p>
+
+<p>Moving one step forward, our NCF framework parameterizes the interaction function $f$ using neural networks to estimate $\hat{y}_{ui}$. As such, it naturally supports both pointwise and pairwise learning.</p>
+
+<h1 id="general-framework">General Framework</h1>
+
+<p>To permit a full neural treatment of collaborative filtering, we adopt a multi-layer representation to model a user–item interaction $y_{ui}$, where the output of one layer serves as the input of the next one. The bottom input layer consists of two feature vectors $v_U^u$ and $v_I^i$ that describe user $u$ and item $i$, respectively; they can be customized to support a wide range of modeling of users and items, such as context-aware, content-based, and neighbor-based. Since this work focuses on the pure collaborative filtering setting, we use only the identity of a user and an item as the input feature, transforming it to a binarized sparse vector with one-hot encoding. Note that with such a generic feature representation for inputs, our method can be easily adjusted to address the cold-start problem by using content features to represent users and items.</p>
+
+<p>Above the input layer is the embedding layer; it is a fully connected layer that projects the sparse representation to a dense vector. The obtained user (item) embedding can be seen as the latent vector for user (item) in the context of latent factor model. The user embedding and item embedding are then fed into a multi-layer neural architecture, which we term as <strong>neural collaborative filtering layers</strong>, to map the latent vectors to prediction scores. Each layer of the neural CF layers can be customized to discover certain latent structures of user–item interactions. The dimension of the last hidden layer $X$ determines the model’s capability. The final output layer is the predicted score $\hat{y}_{ui}$, and training is performed by minimizing the pointwise loss between \(\hat{y}_{ui}\) and its target value \(y_{ui}\). We note that another way to train the model is by performing pairwise learning, such as using the Bayesian Personalized Ranking and margin-based loss. As the focus of the paper is on the neural network modeling part, we leave the extension to pairwise learning of NCF as a future work.</p>
+
+<p>We now formulate the NCF’s predictive model as</p>
+
+\[\hat{y}_{ui} = f(P^\top v_U^u, Q^\top v_I^i | P, Q, \Theta_f), \tag{1}\]
+
+<p>where $P \in \mathbb{R}^{M \times K}$ and $Q \in \mathbb{R}^{N \times K}$, denoting the latent factor matrix for users and items, respectively; and $\Theta_f$ denotes the model parameters of the interaction function $f$. Since the function $f$ is defined as a multi-layer neural network, it can be formulated as</p>
+
+\[f(P^\top v_U^u, Q^\top v_I^i) = \phi_{\text{out}}(\phi_X(\dots\phi_2(\phi_1(P^\top v_U^u, Q^\top v_I^i))\dots)) \tag{2}\]
+
+<p>where $\phi_{\text{out}}$ and $\phi_x$ respectively denote the mapping function for the output layer and the $x$-th neural collaborative filtering (CF) layer, and there are $X$ neural CF layers in total.</p>
+
+<p>Considering the one-class nature of implicit feedback, we can view the value of $y_{ui}$ as a label — 1 means item $i$ is relevant to $u$, and 0 otherwise. The prediction score \(\hat{y}_{ui}\) then represents how likely $i$ is relevant to $u$. To endow NCF with such a probabilistic explanation, we need to constrain the output \(\hat{y}_{ui}\) in the range of [0, 1], which can be easily achieved by using a probabilistic function (e.g., the Logistic or Probit function) as the activation function for the output layer $\phi_{\text{out}}$. With the above settings, we then define the likelihood function as</p>
+
+\[p(Y^+, Y^-|P, Q, \Theta_f) = \prod_{(u,i) \in Y^+} \hat{y}_{ui} \prod_{(u,j) \in Y^-} (1 - \hat{y}_{uj})\]
+
+<p>where $Y^+$ denotes the set of observed interactions in $Y$, and $Y^-$ denotes the set of negative instances, which can be all (or sampled from) unobserved interactions.</p>
+
+<p>Taking the negative logarithm of the likelihood, we reach</p>
+
+\[L = - \sum_{(u,i) \in Y^+} \log \hat{y}_{ui} - \sum_{(u,j) \in Y^-} \log(1 - \hat{y}_{uj}) = - \sum_{(u,i) \in Y^+ \cup Y^-} y_{ui} \log \hat{y}_{ui} + (1 - y_{ui}) \log(1 - \hat{y}_{ui}) \tag{3}\]
+
+<p>This is the objective function to minimize for the NCF methods, and its optimization can be done by performing stochastic gradient descent (SGD).</p>
+
+<h1 id="generalized-matrix-factorization-gmf">Generalized Matrix Factorization (GMF)</h1>
+
+<p>We now show how MF can be interpreted as a special case of our NCF framework. Let the user latent vector $p_u$ be $P^\top v_U^u$ and item latent vector $q_i$ be $Q^\top v_I^i$. We define the mapping function of the first neural CF layer as</p>
+
+\[\phi_1(p_u, q_i) = p_u \odot q_i\]
+
+<p>where $\odot$ denotes the element-wise product of vectors. We then project the vector to the output layer:</p>
+
+\[\hat{y}_{ui} = a_{\text{out}}(h^\top(p_u \odot q_i))\]
+
+<p>where $a_{\text{out}}$ and $h$ denote the activation function and edge weights of the output layer, respectively. Intuitively, if we use an identity function for $a_{\text{out}}$ and enforce $h$ to be a uniform vector of 1, we can exactly recover the MF model.</p>
+
+<p>In this work, we implement a generalized version of MF under NCF that uses the sigmoid function $\sigma(x) = \frac{1}{1 + e^{-x}}$ as $a_{\text{out}}$ and learns $h$ from data with the log loss (Equation 3). We term it as GMF, short for Generalized Matrix Factorization.</p>
+
+<h1 id="multi-layer-perceptron-mlp">Multi-Layer Perceptron (MLP)</h1>
+
+<p>Since NCF adopts two pathways to model users and items, it is intuitive to combine the features of two pathways by concatenating them. However, simply a vector concatenation does not account for any interactions between user and item latent features, which is insufficient for modeling the collaborative filtering effect. To address this issue, we propose to add hidden layers on the concatenated vector, using a standard MLP to learn the interaction between user and item latent features. In this sense, we can endow the model a large level of flexibility and non-linearity to learn the interactions between $p_u$ and $q_i$, rather than the way of GMF that uses only a fixed element-wise product on them. More precisely, the MLP model under our NCF framework is defined as:</p>
+
+\[\begin{align*}
+&amp;z_1 = \phi_1(p_u, q_i) = \begin{array}{c} \begin{pmatrix} p_u \\ q_i \end{pmatrix} \end{array} \\
+&amp;\phi_2(z_{1}) = a_{2}(W_{2}^{T}z_{1} + b_{2}) \\
+&amp;\dots \\
+&amp;\phi_L(z_{L-1}) = a_{L}(W_{L}^{T}z_{L-1} + b_{L}) \\
+&amp;\hat{y}_{ui} = \sigma(h^{T}\phi_L(z_{L-1}))
+\end{align*}\]
+
+<p>where $W_x$, $b_x$, and $a_x$ denote the weight matrix, bias vector, and activation function for the $x$-th layer’s perceptron, respectively. For activation functions of MLP layers, one can freely choose sigmoid, hyperbolic tangent (tanh), and Rectifier (ReLU), among others.</p>
+
+<p>We would like to analyze each function:</p>
+
+<ol>
+  <li>
+    <p>The sigmoid function restricts each neuron to be in (0,1), which may limit the model’s performance; and it is known to suffer from saturation, where neurons stop learning when their output is near either 0 or 1.</p>
+  </li>
+  <li>
+    <p>Even though tanh is a better choice and has been widely adopted, it only alleviates the issues of sigmoid to a certain extent, since it can be seen as a rescaled version of sigmoid ($\text{tanh}(x/2) = 2\sigma(2x) - 1$).</p>
+  </li>
+  <li>
+    <p>As such, we opt for ReLU, which is more biologically plausible and proven to be non-saturated; moreover, it encourages sparse activations, being well-suited for sparse data and making the model less likely to be overfitting. Our empirical results show that ReLU yields slightly better performance than tanh, which in turn is significantly better than sigmoid.</p>
+  </li>
+</ol>
+
+<p>As for the design of network structure, a common solution is to follow a tower pattern, where the bottom layer is the widest and each successive layer has a smaller number of neurons. The premise is that by using a small number of hidden units for higher layers, they can learn more abstractive features of data. We empirically implement the tower structure, halving the layer size for each successive higher layer.</p>
+
+<h1 id="fusion-of-gmfandmlp">Fusion of GMFandMLP</h1>
+<p>We present a new neural matrix factorization model, which ensembles MF and MLP under the NCF framework; it unifies the strengths of linearity of MF and non-linearity of MLP for modelling the user–item latent structures. A straightforward solution is to let GMF and MLP share the same embedding layer, and then combine the outputs of their interaction functions. This way shares a similar spirit with the well-known Neural Tensor Network (NTN). Specifically, the model for combining GMF with a one-layer MLP can be formulated as:</p>
+
+\[\hat{y}_{ui} = (h^\top a(p_u \odot q_i + W\begin{array}{c} \begin{pmatrix} p_u \\ q_i \end{pmatrix} \end{array} + b))\]
+
+<p>However, sharing embeddings of GMF and MLP might limit the performance of the fused model. For example, it implies that GMF and MLP must use the same size of embeddings; for datasets where the optimal embedding size of the two models varies a lot, this solution may fail to obtain the optimal ensemble.</p>
+
+<p>To provide more flexibility to the fused model, we allow GMF and MLP to learn separate embeddings, and combine the two models by concatenating their last hidden layer:</p>
+
+\[\begin{align*}
+&amp;\phi_\text{GMF} = p_{u}^G \odot q_{i}^G \\
+&amp;\phi_\text{MLP} = a_L(W_L^T(a_{L-1}(\dots a_2(W_2^T \begin{array}{c} \begin{pmatrix} p_u^M \\ q_i^M \end{pmatrix} \end{array} + b_2)\dots)) + b_L) \\
+&amp;\hat{y}_{ui} = \sigma(h^T \begin{array}{c} \begin{pmatrix} \phi_\text{GMF} \\ \phi_\text{MLP} \end{pmatrix} \end{array})
+\end{align*}\]
+
+<p>where $p_{u}^G$ and $p_{u}^M$ denote the user embeddings for GMF and MLP parts, respectively; and similar notations of $q_{i}^G$ and $q_{i}^M$ for item embeddings. As discussed before, we use ReLU as the activation function of MLP layers. This model combines the linearity of MF and non-linearity of DNNs for modeling user-item latent structures. We dub this model NeuMF, short for Neural Matrix Factorization. The derivative of the model with respect to each model parameter can be calculated with standard back-propagation, which is omitted here due to space limitation.</p>
+
+<h1 id="pre-training">Pre-training</h1>
+
+<p>Due to the non-convexity of the objective function of NeuMF, gradient-based optimization methods only find locally-optimal solutions. It is reported that the initialization plays an important role for the convergence and performance of deep learning models. Since NeuMF is an ensemble of GMF and MLP, we propose to initialize NeuMF using the pretrained models of GMF and MLP.</p>
+
+<p>We first train GMF and MLP with random initializations until convergence. We then use their model parameters as the initialization for the corresponding parts of NeuMF’s parameters. The only tweak is on the output layer, where we concatenate weights of the two models with</p>
+
+\[h \leftarrow \begin{array}{c} \begin{pmatrix} \alpha h^{\text{GMF}} \\ (1-\alpha) h^{\text{MLP}} \end{pmatrix} \end{array}\]
+
+<p>where $h^{\text{GMF}}$ and $h^{\text{MLP}}$ denote the $h$ vector of the pretrained GMF and MLP model, respectively; and $\alpha$ is a hyper-parameter determining the trade-off between the two pretrained models.</p>
+
+<p>For training GMF and MLP from scratch, we adopt the Adaptive Moment Estimation (Adam), which adapts the learning rate for each parameter by performing smaller updates for frequent and larger updates for infrequent parameters. The Adam method yields faster convergence for both models than the vanilla SGD and relieves the pain of tuning the learning rate. After feeding pretrained parameters into NeuMF, we optimize it with the vanilla SGD, rather than Adam. This is because Adam needs to save momentum information for updating parameters properly. As we initialize NeuMF with pretrained model parameters only and forgo saving the momentum information, it is unsuitable to further optimize NeuMF with momentum-based methods.</p>
+
+
+</body>
+</html>
