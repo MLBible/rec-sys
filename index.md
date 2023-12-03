@@ -14,4 +14,6 @@ title: Home
 
 - [Neural Collaborative Filtering](ncf/)
 
+- [CASER - ConvolutionAl Sequence Embedding Recommendation](caser/)
+
 - [DLRM](dlrm/)
